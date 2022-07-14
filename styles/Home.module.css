@@ -12,6 +12,32 @@
   align-items: center;
 }
 
+.header {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  padding: 2rem 0;
+  border-top: 1px solid #eaeaea;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.button {
+  margin: 2em;
+}
+
+.input {
+  margin: 0.5em auto;
+}
+
+.profile {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
 .footer {
   display: flex;
   flex: 1;
@@ -42,7 +68,7 @@
 .title {
   margin: 0;
   line-height: 1.15;
-  font-size: 4rem;
+  font-size: 1rem;
 }
 
 .title,
