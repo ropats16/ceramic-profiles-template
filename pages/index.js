@@ -1,56 +1,134 @@
 import Head from 'next/head';
-import { useContext, useState, useCallback } from 'react';
+import { useContext, useState } from 'react';
 import { MainContext } from '../context';
 
-import { DIDDataStore } from '@glazed/did-datastore';
+import { TileDocument } from '@ceramicnetwork/stream-tile';
 
 import styles from '../styles/Home.module.css';
 
 export default function Home() {
-  const { auth, ceramic, aliases } = useContext(MainContext);
+  const { tryAuthenticate, ceramic } = useContext(MainContext);
 
-  const [data, setData] = useState([]);
-  const [name, setName] = useState('');
-  const [pfp, setPFP] = useState('');
+  const [schemaDoc, setSchemaDoc] = useState({});
+  const [profileDoc, setProfileDoc] = useState({});
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
 
-  const datastore = new DIDDataStore({ ceramic, model: aliases });
+  const schemaContent = {
+    $schema: 'http://json-schema.org/draft-07/schema#',
+    title: 'NFT Standard Schema Test',
+    type: 'object',
+    properties: {
+      description: {
+        type: 'string',
+        maxLength: 420,
+      },
+      image: {
+        type: 'string',
+        maxLength: 200,
+      },
+      name: {
+        type: 'string',
+        maxLength: 150,
+      },
+      attributes: [
+        {
+          strength: {
+            type: 'integer',
+            maxLength: 2,
+          },
+          stamina: {
+            type: 'integer',
+            maxLength: 2,
+          },
+          speed: {
+            type: 'integer',
+            maxLength: 2,
+          },
+          health: {
+            type: 'integer',
+            maxLength: 2,
+          },
+          magicMastery: {
+            type: 'integer',
+            maxLength: 2,
+          },
+        },
+      ]
+    },
+    required: ['description', 'image', 'name', 'attributes'],
+  }
 
-  const updateProfile = useCallback(async () => {
-    try {
-      setLoaded(false);
-      await auth();
-      await datastore.merge('BasicProfile', { name, pfp });
-      const profile = await datastore.get('BasicProfile');
-      console.log(profile);
-      setData(profile);
-      console.log(data);
-      setLoaded(true);
-      setError('');
-    } catch (error) {
-      console.log('error :', error.message);
-      setLoaded(true);
-      setError(error.message);
-    }
-  }, []);
+  const profileContent = {
+    description: 'Beveloper BAO | Development🤝Education | Full stack web3 dev | Buidlooor & Shipooor',
+    image: 'https://gateway.pinata.cloud/ipfs/QmQQpDbHBpsUyr16CWsCn5ji4TpZzoYxTmeZJchvRjpYmn',
+    name: 'Open Sourcerer',
+    attributes: [
+      {
+        strength: 99,
+        stamina: 87,
+        speed: 1,
+        health: 50,
+        magicMastery: 0,
+      }
+    ]
+  }
 
-  const readProfile = useCallback(async () => {
-    try {
-      setLoaded(false);
-      await auth();
-      const profile = await datastore.get('BasicProfile');
-      console.log(profile);
-      setData(profile);
-      setLoaded(true);
-      setError('');
-    } catch (error) {
-      console.log('error :', error.message);
-      setLoaded(true);
-      setError(error.message);
-    }
-  }, []);
+  const createSchemaDocument = async () => {
+    await tryAuthenticate();
+    // The following call will fail if the Ceramic instance does not have an authenticated DID
+    const doc = await TileDocument.create(ceramic, schemaContent);
 
+    console.log(typeof doc);
+    console.log(doc);
+    setSchemaDoc(doc);
+    console.log("Set Schema Doc:", schemaDoc);
+    // The stream ID of the created document can then be accessed as the `id` property
+    return doc.commitId
+  }
+
+  const updateSchemaDocument = async () => {
+    await tryAuthenticate();
+    console.log(schemaDoc);
+    // First, we need to load the document
+    const doc = await TileDocument.load(ceramic, schemaDoc.id);
+    console.log(doc);
+    // The following call will fail if the Ceramic instance does not have an authenticated DID
+    await doc.update(schemaContent);
+    setSchemaDoc(doc);
+    console.log("Update Schema Doc:", schemaDoc);
+  }
+
+  // The `id` argument can be a stream ID (to load the latest version)
+  // or a commit ID (to load a specific version)
+  const loadSchemaDocument = async () => {
+    const doc = await TileDocument.load(ceramic, schemaDoc.id);
+    setSchemaDoc(doc);
+    console.log(doc);
+  }
+
+  const createProfileDocument = async () => {
+    await tryAuthenticate();
+    const doc = await TileDocument.create(ceramic, profileContent, schemaDoc.commitId);
+    setProfileDoc(doc);
+    console.log("New Profile:", profileDoc);
+  }
+
+  const updateProfileDocument = async () => {
+    await tryAuthenticate();
+    // First, we need to load the document
+    const doc = await TileDocument.load(ceramic, profileDoc.id);
+    // The following call will fail if the Ceramic instance does not have an authenticated DID
+    await doc.update(profileContent);
+    setProfileDoc(doc);
+    console.log("Update Profile Doc:", profileDoc);
+  }
+
+  const loadProfileDocument = async () => {
+    const doc = await TileDocument.load(ceramic, profileDoc.commitId);
+    setProfileDoc(doc)
+    console.log(doc);
+  }
 
   return (
     <div className={styles.container}>
@@ -64,46 +142,26 @@ export default function Home() {
         <h1 className={styles.title}>
           Welcome to Ceramic Profiles Template!
         </h1>
-        {/* {ceramic.did == undefined ?
-          (
-            <button onClick={auth} >
-              Connect Wallet and Authenticate
-            </button>
-
-          ) :
-          (
-            <div>
-              User Authenticated
-            </div>
-          )
-        } */}
       </header>
       <main className={styles.main}>
-        <div className={styles.profile}>
-          <div>
-            <input className={styles.input} placeholder='Name' value={name} onChange={e => setName(e.target.value)} />
-            <input className={styles.input} placeholder='Image URL' value={pfp} onChange={e => setPFP(e.target.value)} />
-            {name && <h3>{name}</h3>}
-            {pfp && <img style={{ width: '250px' }} src={pfp} />}
-          </div>
-          <button className={styles.button} onClick={updateProfile}>
-            Update Profile
-          </button>
-        </div>
-        <div className={styles.profile}>
-          {data != null ?
-            <div>
-              <h3>Name: {data.name}</h3>
-              <h3>Profile Picture:</h3>
-              <img style={{ width: '250px' }} src={data.pfp} />
-            </div>
-            :
-            <div style={{ color: 'red' }}>Ceramic DID {ceramic.did._id} has no profile yet</div>
-          }
-          <button className={styles.button} onClick={readProfile}>
-            Read Profile
-          </button>
-        </div>
+        <button className={styles.button} onClick={createSchemaDocument}>
+          Create Schema Document
+        </button>
+        <button className={styles.button} onClick={updateSchemaDocument}>
+          Update Schema Document
+        </button>
+        <button className={styles.button} onClick={loadSchemaDocument}>
+          Load Schema Document
+        </button>
+        <button className={styles.button} onClick={createProfileDocument}>
+          Create Profile
+        </button>
+        <button className={styles.button} onClick={updateProfileDocument}>
+          Update Profile
+        </button>
+        <button className={styles.button} onClick={loadProfileDocument}>
+          Load Profile
+        </button>
       </main>
     </div>
   )
